@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>shiny bell tracker · a fan-made tool for the mutual fun</title>
+<meta name="description" content="live, read-only tracker of which TMF Pass bells are shiny. reads Robinhood Chain directly. fan-made, not affiliated.">
+<meta name="theme-color" content="#1d1410">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src https://pass.themutual.fun data:; connect-src https://rpc.mainnet.chain.robinhood.com https://robinhood-rpc.publicnode.com https://robinhood.drpc.org https://ethereum-rpc.publicnode.com https://eth.drpc.org https://pass.themutual.fun; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M12 46a20 20 0 0 1 40 0z' fill='%23d4af37'/%3E%3Crect x='6' y='46' width='52' height='7' rx='3' fill='%23b08a3c'/%3E%3Crect x='28' y='18' width='8' height='8' rx='2' fill='%23e3c766'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#1d1410; --raised:#2a1e17; --sunken:#150e0b; --rule:#3e2f24;
+  --ink:#f0e6d2; --muted:#a79878; --gold:#c9a86a; --foil:#e3c766; --foil-deep:#d4af37;
+  --oxblood:#7a2e2e; --oxblood-lite:#c97b7b; --lamp:#4f8c5c; --caution:#c79b4b;
+  --display:"Libre Caslon Text",Georgia,serif; --body:"Source Serif 4",Georgia,serif; --mono:"IBM Plex Mono",Menlo,monospace;
+  --r:3px; --ease:cubic-bezier(.2,0,0,1);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.5 var(--body);
+  background-image:radial-gradient(ellipse 90% 50% at 50% -10%,rgba(227,199,102,.13),transparent 70%),
+  repeating-linear-gradient(178deg,rgba(255,255,255,.012) 0 2px,transparent 2px 9px);
+  min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
+a{color:var(--gold);text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{color:var(--foil)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 18px}
+.mono{font-family:var(--mono)}
+.eyebrow{font:500 11px/1.2 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.rule{border:0;border-top:1px solid var(--rule);margin:0}
+header{padding:22px 0 8px;text-align:center}
+.tag{display:inline-block;border:1px solid var(--rule);border-radius:99px;padding:4px 11px;font:500 10.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+h1{font:400 clamp(34px,10vw,58px)/1.02 var(--display);margin:16px 0 8px;letter-spacing:-.01em}
+h1 em{font-style:italic;color:var(--foil)}
+.lede{margin:0 auto;max-width:34em;color:var(--muted);font-size:16px}
+h2{font:400 26px/1.15 var(--display);margin:0 0 4px}
+section{margin:30px 0}
+.card{background:var(--raised);border:1px solid var(--rule);border-radius:var(--r)}
+/* counter */
+.counter{padding:22px 18px 18px;text-align:center;position:relative;overflow:hidden}
+.counter .big{font:400 clamp(56px,19vw,96px)/1 var(--display);color:var(--foil);text-shadow:0 0 28px rgba(227,199,102,.25)}
+.counter .big small{font-size:.42em;color:var(--muted)}
+.counter .line{font:400 20px/1.3 var(--display);margin:8px 0 2px}
+.counter .sub{color:var(--muted);font-size:15px;margin:0}
+.bar{height:6px;background:var(--sunken);border:1px solid var(--rule);border-radius:99px;margin:16px auto 10px;max-width:520px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold),var(--foil));transition:width .8s var(--ease)}
+.status{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 14px;font:400 12px/1.4 var(--mono);color:var(--muted);margin-top:8px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin-right:6px;vertical-align:1px}
+.dot.live{background:var(--lamp);box-shadow:0 0 8px var(--lamp)}
+.dot.amber{background:var(--caution)}
+.btn{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;background:var(--oxblood);color:var(--ink);border:1px solid #8f4242;border-radius:var(--r);padding:11px 14px;cursor:pointer;min-height:42px}
+.btn:hover{background:#8f4242}
+.btn.ghost{background:transparent;border-color:var(--rule);color:var(--muted);padding:6px 10px;min-height:0}
+.btn.ghost:hover{color:var(--ink);border-color:var(--gold)}
+/* board */
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(9px,1fr));gap:3px;padding:14px;margin-top:12px}
+.board b{aspect-ratio:1;border-radius:2px;background:#57422f;cursor:pointer;border:0;padding:0}
+.board b.s{background:var(--foil);box-shadow:0 0 6px rgba(227,199,102,.7)}
+.board b.u{background:transparent;outline:1px solid #46362a;outline-offset:-1px;cursor:default}
+.board b.x{background:#5a1f1f}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font:400 12px/1.4 var(--mono);color:var(--muted);margin-top:8px}
+.legend span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:#57422f}
+.legend .ls::before{background:var(--foil)} .legend .lu::before{background:transparent;outline:1px solid #4a3a2c}
+/* shiny list */
+.head{display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:620px){.grid{grid-template-columns:1fr 1fr}}
+@media(min-width:960px){.grid{grid-template-columns:1fr 1fr 1fr}}
+.pass{display:grid;grid-template-columns:96px 1fr;gap:14px;padding:14px;position:relative}
+.pass .art{width:96px;height:96px;border-radius:var(--r);background:var(--sunken) center/cover no-repeat;border:1px solid var(--rule);overflow:hidden;position:relative}
+.pass .art img{width:100%;height:100%;object-fit:cover;display:block}
+.pass .art .ph{position:absolute;inset:0;display:grid;place-items:center}
+.pass .no{font:400 24px/1 var(--display);margin:0 0 4px;padding-right:50px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pass .no .n{color:var(--foil)}
+.badge{font:500 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:4px 7px;border-radius:99px;border:1px solid var(--gold);color:var(--foil);white-space:nowrap}
+.badge.first{background:linear-gradient(90deg,#d4af37,#e3c766);color:#211b14;border-color:transparent}
+.badge.new{border-color:var(--lamp);color:#8fd19f}
+.pass .holder{font:400 13px/1.4 var(--mono);color:var(--ink);word-break:break-all}
+.pass .holder .ens{color:var(--gold)}
+.nw{white-space:nowrap}
+.pass .note{font-style:italic;color:var(--ink);margin:6px 0;font-size:15px;line-height:1.35}
+.pass .note.none{color:var(--muted);font-style:normal;font-size:13px}
+.pass .when{font:400 12px/1.45 var(--mono);color:var(--muted)}
+.pass .when b{color:var(--ink);font-weight:500}
+.links{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:8px;font:500 12px/1.3 var(--mono)}
+.links a{white-space:nowrap}
+.ringno{position:absolute;top:10px;right:12px;font:500 11px/1 var(--mono);color:var(--muted)}
+.empty{padding:22px;text-align:center;color:var(--muted)}
+/* lookup */
+.lookup{padding:18px}
+.lookup form{display:flex;gap:8px;margin-top:12px}
+.lookup input{flex:1;min-width:0;font:400 16px/1 var(--mono);background:var(--sunken);color:var(--ink);border:1px solid var(--rule);border-radius:var(--r);padding:11px 12px;min-height:44px}
+.lookup input:focus{outline:2px solid var(--gold);outline-offset:1px}
+.result{margin-top:16px}
+.res{display:grid;grid-template-columns:72px 1fr;gap:14px;align-items:start;padding:14px;background:var(--sunken);border:1px solid var(--rule);border-radius:var(--r);margin-top:10px}
+.res h3{font:400 22px/1.15 var(--display);margin:0 0 4px}
+.res .state{font:500 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase}
+.res .state.s{color:var(--foil)} .res .state.d{color:var(--muted)}
+.res p{margin:4px 0}
+.res .mono,.res .holder{font-size:13px}
+@media(max-width:480px){.counter{padding:16px 14px 14px}.counter .line{font-size:18px}.counter .sub{font-size:14px}header{padding-top:16px}section{margin:22px 0}}
+.err{color:var(--oxblood-lite);font:400 14px/1.4 var(--mono)}
+/* how */
+.how{padding:18px}
+.how p{margin:8px 0}
+.warn{border-left:3px solid var(--oxblood-lite);padding:8px 12px;background:rgba(122,46,46,.18);border-radius:0 var(--r) var(--r) 0;font-size:15px}
+.addr{font:400 13px/1.4 var(--mono);word-break:break-all;color:var(--ink)}
+footer{padding:26px 0 40px;text-align:center;font:400 12px/1.6 var(--mono);color:var(--muted)}
+/* bell svg */
+.bell{display:block}
+.bell.shiny .dome{fill:url(#gShiny)}
+.bell.shiny .glint{opacity:1}
+.bell.shiny{filter:drop-shadow(0 0 10px rgba(227,199,102,.55))}
+.bell .glint{opacity:0}
+@media (prefers-reduced-motion:no-preference){
+  .bell.shiny .glint{animation:tw 2.6s ease-in-out infinite}
+  @keyframes tw{0%,100%{opacity:.25}50%{opacity:1}}
+  .pass.fresh{animation:pop .9s var(--ease)}
+  @keyframes pop{0%{transform:scale(.97);box-shadow:0 0 0 rgba(227,199,102,0)}40%{box-shadow:0 0 30px rgba(227,199,102,.35)}100%{transform:none}}
+}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="gShiny" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset=".35" stop-color="#e3c766"/><stop offset=".75" stop-color="#b08a3c"/><stop offset="1" stop-color="#7d601c"/></linearGradient>
+    <linearGradient id="gDusty" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a7350"/><stop offset="1" stop-color="#4a3b28"/></linearGradient>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header>
+    <span class="tag">fan-made · read-only · robinhood chain</span>
+    <h1>shiny bell <em>tracker</em></h1>
+    <p class="lede">every TMF Pass has a front desk bell. ring it once and it goes shiny. this page reads the pass contract live and keeps score.</p>
+  </header>
+
+  <section class="card counter" aria-live="polite">
+    <div id="topBell" style="display:flex;justify-content:center;margin-bottom:6px"></div>
+    <div class="big" id="bigCount">··</div>
+    <p class="line" id="countLine">checking the front desk…</p>
+    <p class="sub" id="countSub">&nbsp;</p>
+    <div class="bar"><i id="barFill"></i></div>
+    <div class="status">
+      <span><span class="dot" id="liveDot"></span><span id="statusText">connecting</span></span>
+      <span id="blockText"></span>
+      <span id="nextText"></span>
+      <button class="btn ghost" id="refreshBtn" type="button">refresh</button>
+    </div>
+  </section>
+
+  <section class="card lookup" id="lookup">
+    <div class="eyebrow">dusty or shiny?</div>
+    <h2>check a bell</h2>
+    <form id="lookupForm" autocomplete="off">
+      <label class="sr" for="q">pass number or wallet address</label>
+      <input id="q" inputmode="text" placeholder="pass # or 0x wallet" spellcheck="false" autocapitalize="off">
+      <button class="btn" type="submit">check</button>
+    </form>
+    <div class="result" id="result"></div>
+  </section>
+
+  <section>
+    <div class="head">
+      <div><div class="eyebrow">in the order they rang</div><h2>the shiny list</h2></div>
+    </div>
+    <div class="grid" id="shinyGrid"><div class="card empty">loading rings from the chain…</div></div>
+  </section>
+
+
+  <section>
+    <div class="eyebrow">all passes issued so far</div>
+    <h2>the bell board</h2>
+    <div class="card board" id="board" aria-label="every issued pass, gold means shiny"></div>
+    <div class="legend"><span class="ls">shiny</span><span>dusty</span><span class="lu">not issued yet</span><span>tap a square to check it</span></div>
+  </section>
+
+  <section class="card how">
+    <div class="eyebrow">how to ring yours</div>
+    <h2>ring the bell</h2>
+    <p>from the wallet holding your pass, call <span class="mono">ringTheBell</span> on the TMF Pass contract itself, not the pass art. one ring per wallet shines every pass in it. no inputs, no approvals, no signatures.</p>
+    <p>only reach the contract through the official links page, <a href="https://links.themutual.fun/" target="_blank" rel="noreferrer">links.themutual.fun</a>. the real address is <span class="addr">0xED37605FF0e513e46d50B26244DEb2024189751a</span> on Robinhood Chain.</p>
+    <p class="warn">never use contract addresses or links from replies, DMs or "support" accounts. nothing about the bell ever asks you to approve tokens or send funds.</p>
+  </section>
+</div>
+
+<footer class="wrap">
+  <hr class="rule" style="margin-bottom:18px">
+  fan-made by <a href="https://x.com/Boooooo1122" target="_blank" rel="noreferrer">@Boooooo1122</a> for <a href="https://x.com/themutualfun" target="_blank" rel="noreferrer">@themutualfun</a>. not affiliated. read-only.
+  <div style="margin-top:6px;opacity:.75">data straight from Robinhood Chain · no wallet connect, ever</div>
+</footer>
+
+<script>
+(() => {
+"use strict";
+const PASS = "0xed37605ff0e513e46d50b26244deb2024189751a";
+const MC3 = "0xca11bde05977b3631167028862be2a173976ca11";
+const UR = "0xeeeeeeee14d718c2b47d9923deab1335e144eeee"; // ENS universal resolver, ethereum mainnet
+const DEPLOY_BLOCK = 76832250;
+// head start: BellRung logs already read from the chain (deploy block 76832250 to 78558247), so a first visit
+// only scans newer blocks. shininess itself is always re-read live via hasRung(holder).
+const SEED_TO = 78558247;
+const SEED = [{"n":1,"ringer":"0x3ea604c41f9a3793a8dd99919c9fa2aeff5d73d9","block":78347108,"tx":"0xb6b395ab73cd043af9eedb37e5bbdfb145136d4d687de677e37c9614b8f00b23","ts":1790955781},{"n":2,"ringer":"0x204283101cb7e1cba11ef2b076140517b4fe7a61","block":78478147,"tx":"0x67d11bbc14e024614a4b6dbbb48930ca2a82e9bf42cca4f3c78a9c126b3bda0f","ts":1790968977},{"n":3,"ringer":"0x44a67d5dac545cc7b7cc3a7834c2c608b3a6e3d1","block":78487812,"tx":"0x4a1d1d7f3a39d4cf2b05bd44630149cca1d6a032fc075beaf4c57a979e98f699","ts":1790969951},{"n":4,"ringer":"0x7e1404d8d38347d62424aab978703026c3c706ad","block":78501994,"tx":"0x09395cc56833c9d246ef791c47916e8e3d693afeea9b90cf7520780f46deec7e","ts":1790971378},{"n":5,"ringer":"0xd54938767f1b643d3026fe575bd05ea8a6873ace","block":78545032,"tx":"0x98b2f7955bc2965d1ebbb329a2d6fc711c3534ba58b2ec5a169e56e27e8283c5","ts":1790975723},{"n":6,"ringer":"0xca50378eee9e4069114eaf301d813494ca190bb5","block":78554406,"tx":"0x14c74df62694e879cce99b7963ec4a8560fe1b9beb7bfbcf76d7eca7359ba1c6","ts":1790976669},{"n":7,"ringer":"0xae6adc37e63856097551d2eca2caf5805e2125fa","block":78557632,"tx":"0x50c5d3c7062910261cddb5459f9ae3657badfcc612d5bc1caa3422112a19fc39","ts":1790976994}];
+const MAX_SUPPLY = 1500;
+const REFRESH_MS = 60000;
+const LOG_SPAN = 9999999;
+const TOPIC_BELL = "0x6849958c97df59440f0399eca6512ae1b45796a00b20ecccced4b1785889e00b";
+const RH_RPCS = ["https://rpc.mainnet.chain.robinhood.com","https://robinhood-rpc.publicnode.com","https://robinhood.drpc.org"];
+const ETH_RPCS = ["https://ethereum-rpc.publicnode.com","https://eth.drpc.org"];
+const EXP = "https://robin.etherscan.io";
+const SEL = {ownerOf:"6352211e",hasRung:"307569dd",bellCount:"7faf0f0b",sourceOf:"fbd2c169",textOf:"55c8866e",totalMinted:"a2309ff8",totalBurned:"d89135cd",tokenURI:"c87b56dd"};
+const DOORS = ["", "deng door", "by application", "by introduction", "the house", "by invitation"];
+const LS = "tmfBellTracker.v1";
+
+const $ = id => document.getElementById(id);
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+
+/* ---------- tiny abi helpers ---------- */
+const pad = h => h.padStart(64, "0");
+const u256 = n => pad(BigInt(n).toString(16));
+const addrWord = a => pad(a.slice(2).toLowerCase());
+const word = (h, byteOff) => h.slice(byteOff * 2, byteOff * 2 + 64);
+const num = w => Number(BigInt("0x" + (w || "0")));
+function encAggregate3(calls) {
+  const heads = [], tails = []; let off = calls.length * 32;
+  for (const c of calls) {
+    const d = c.data.replace(/^0x/, ""), len = d.length / 2;
+    const tuple = addrWord(c.to) + u256(1) + u256(96) + u256(len) + d.padEnd(Math.ceil(len / 32) * 64, "0");
+    heads.push(u256(off)); tails.push(tuple); off += tuple.length / 2;
+  }
+  return "0x82ad56cb" + u256(32) + u256(calls.length) + heads.join("") + tails.join("");
+}
+function decAggregate3(hex) {
+  const h = hex.slice(2), a = num(word(h, 0)), n = num(word(h, a)), base = a + 32, out = [];
+  for (let i = 0; i < n; i++) {
+    const t = base + num(word(h, base + i * 32));
+    const ok = num(word(h, t)) === 1, d = t + num(word(h, t + 32)), len = num(word(h, d));
+    out.push({ ok, data: "0x" + h.slice((d + 32) * 2, (d + 32 + len) * 2) });
+  }
+  return out;
+}
+function decString(hex) {
+  const h = hex.replace(/^0x/, ""); if (h.length < 128) return "";
+  const o = num(word(h, 0)), len = num(word(h, o));
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = parseInt(h.substr((o + 32 + i) * 2, 2), 16);
+  return new TextDecoder().decode(bytes);
+}
+const decAddr = hex => "0x" + hex.replace(/^0x/, "").slice(24, 64);
+const decUint = hex => num(hex.replace(/^0x/, "").slice(0, 64));
+
+/* ---------- rpc with fallback ---------- */
+let rpcId = 0, lastRpc = "";
+const lastHit = {};
+async function rpcOne(url, method, params, ms = 12000) {
+  // the public rpc rate limits bursts, so space calls out a little per endpoint
+  const wait = (lastHit[url] || 0) + 250 - Date.now(); lastHit[url] = Date.now() + Math.max(0, wait);
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }), signal: ctl.signal });
+    if (!r.ok) throw new Error("http " + r.status);
+    const j = await r.json();
+    if (j.error) throw new Error(j.error.message || "rpc error");
+    return j.result;
+  } finally { clearTimeout(t); }
+}
+async function rpc(urls, method, params) {
+  let err;
+  for (const u of urls) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try { const res = await rpcOne(u, method, params); if (urls === RH_RPCS) lastRpc = u; return res; }
+      catch (e) { err = e; if (!/429|Too Many|Failed to fetch|NetworkError|Load failed/i.test(String(e.message))) break; await new Promise(r => setTimeout(r, 1200)); }
+    }
+  }
+  throw err;
+}
+const ethCall = (urls, to, data) => rpc(urls, "eth_call", [{ to, data }, "latest"]);
+async function multicall(urls, calls, chunk = 400) {
+  const out = [];
+  for (let i = 0; i < calls.length; i += chunk) {
+    const part = calls.slice(i, i + chunk);
+    out.push(...decAggregate3(await ethCall(urls, MC3, encAggregate3(part))));
+  }
+  return out;
+}
+const pc = (sel, arg) => ({ to: PASS, data: "0x" + sel + (arg == null ? "" : (typeof arg === "string" ? addrWord(arg) : u256(arg))) });
+
+/* ---------- state + cache ---------- */
+let cache = {};
+try { cache = JSON.parse(localStorage.getItem(LS) || "{}"); } catch (e) { cache = {}; }
+cache.rings = cache.rings || [];        // [{n, ringer, block, tx, ts}]
+cache.scannedTo = Math.max(cache.scannedTo || 0, SEED_TO);
+for (const r of SEED) if (!cache.rings.some(x => x.tx === r.tx && x.n === r.n)) cache.rings.push(r);
+cache.ens = cache.ens || {};            // addr -> {name, at}
+cache.meta = cache.meta || {};          // id -> {image, anim}
+cache.seen = cache.seen || null;        // passes already shown as shiny
+const save = () => { try { localStorage.setItem(LS, JSON.stringify(cache)); } catch (e) {} };
+
+const S = { minted: 0, burned: 0, bells: 0, owners: [], rung: {}, info: {}, block: 0, ok: false, logsPartial: false, lastOk: 0 };
+
+/* ---------- formatting ---------- */
+const short = a => a.slice(0, 6) + "…" + a.slice(-4);
+const four = n => String(n).padStart(4, "0");
+const fmtInt = n => Number(n).toLocaleString("en-US");
+function utc(ts) { const d = new Date(ts * 1000); const p = x => String(x).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`; }
+function ago(ts) {
+  const s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60); if (m < 60) return m === 1 ? "1 minute ago" : m + " minutes ago";
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h ${m % 60}m ago`;
+  const d = Math.floor(h / 24); return d + " days ago";
+}
+const BELL_INNER = `<rect x="29" y="12" width="6" height="6" rx="1.5" fill="#b08a3c"/> <rect x="25" y="9" width="14" height="4" rx="2" fill="#c9a86a"/> <path class="dome" d="M10 46a22 22 0 0 1 44 0z" fill="url(#gDusty)"/> <rect x="5" y="46" width="54" height="8" rx="3" fill="#6b4f22"/> <rect x="5" y="46" width="54" height="2.5" rx="1.2" fill="#b08a3c" opacity=".7"/> <g class="glint" fill="#fffbe8"><path d="M22 28l1.4 3.6 3.6 1.4-3.6 1.4L22 38l-1.4-3.6-3.6-1.4 3.6-1.4z"/><circle cx="44" cy="20" r="1.6"/><circle cx="50" cy="33" r="1.1"/></g>`;
+const bellSvg = (shiny, size) => { const w = el("div"); w.innerHTML = `<svg class="bell${shiny ? " shiny" : ""}" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true">${BELL_INNER}</svg>`; return w.firstChild; };
+const link = (href, txt) => { const a = el("a", null, txt); a.href = href; a.target = "_blank"; a.rel = "noreferrer"; return a; };
+
+/* ---------- chain reads ---------- */
+async function loadCore() {
+  const [bn, head] = await Promise.all([
+    rpc(RH_RPCS, "eth_blockNumber", []),
+    multicall(RH_RPCS, [pc(SEL.totalMinted), pc(SEL.totalBurned), pc(SEL.bellCount)])
+  ]);
+  S.block = parseInt(bn, 16);
+  S.minted = decUint(head[0].data); S.burned = decUint(head[1].data); S.bells = decUint(head[2].data);
+  const ids = Array.from({ length: S.minted }, (_, i) => i + 1);
+  const res = await multicall(RH_RPCS, ids.map(i => pc(SEL.ownerOf, i)));
+  S.owners = [null, ...res.map(r => r.ok && r.data.length >= 66 ? decAddr(r.data) : null)];
+  const uniq = [...new Set(S.owners.filter(Boolean))];
+  const hr = await multicall(RH_RPCS, uniq.map(a => pc(SEL.hasRung, a)));
+  S.rung = {}; uniq.forEach((a, i) => { S.rung[a] = hr[i].ok && decUint(hr[i].data) === 1; });
+}
+async function loadInfo(ids) {
+  const need = ids.filter(i => !S.info[i]);
+  if (!need.length) return;
+  const calls = []; need.forEach(i => calls.push(pc(SEL.textOf, i), pc(SEL.sourceOf, i), pc(SEL.tokenURI, i)));
+  const r = await multicall(RH_RPCS, calls);
+  need.forEach((id, k) => {
+    const t = r[k * 3], s = r[k * 3 + 1], u = r[k * 3 + 2];
+    S.info[id] = { note: t.ok ? decString(t.data) : "", src: s.ok ? decUint(s.data) : 0, uri: u.ok ? decString(u.data) : "" };
+  });
+}
+async function loadMeta(id) {
+  if (cache.meta[id]) return cache.meta[id];
+  const uri = S.info[id] && S.info[id].uri;
+  if (!uri || !/^https:\/\/pass\.themutual\.fun\//.test(uri)) return null;
+  try {
+    const j = await (await fetch(uri)).json();
+    const m = { image: String(j.image || ""), anim: String(j.animation_url || "") };
+    if (!/^https:\/\/pass\.themutual\.fun\//.test(m.image)) m.image = "";
+    if (!/^https:\/\/pass\.themutual\.fun\//.test(m.anim)) m.anim = "";
+    cache.meta[id] = m; save(); return m;
+  } catch (e) { return null; }
+}
+async function retryLogs(q) {
+  let err;
+  for (const ms of [1500, 3500, 6000]) {
+    await new Promise(r => setTimeout(r, ms));
+    try { return await rpcOne(RH_RPCS[0], "eth_getLogs", q, 20000); } catch (e) { err = e; }
+  }
+  throw err;
+}
+async function scanLogs() {
+  const latest = S.block; let from = cache.scannedTo + 1; S.logsPartial = false;
+  while (from <= latest) {
+    const to = Math.min(from + LOG_SPAN, latest);
+    const q = [{ address: PASS, fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16), topics: [TOPIC_BELL] }];
+    let logs;
+    try { logs = await rpcOne(RH_RPCS[0], "eth_getLogs", q, 20000); }
+    catch (e0) { try { logs = await retryLogs(q); } catch (e) {
+      // fallback rpcs only allow small ranges, so use them just for short catch-ups
+      if (latest - from > 200000) { S.logsPartial = true; break; }
+      logs = [];
+      try { for (let b = from; b <= to; b += 10000) logs.push(...await rpc(RH_RPCS.slice(1), "eth_getLogs", [{ ...q[0], fromBlock: "0x" + b.toString(16), toBlock: "0x" + Math.min(b + 9999, to).toString(16) }])); }
+      catch (e2) { S.logsPartial = true; break; }
+    } }
+    for (const l of logs) {
+      const n = decUint(l.data);
+      if (cache.rings.some(r => r.tx === l.transactionHash && r.n === n)) continue;
+      const blk = await rpc(RH_RPCS, "eth_getBlockByNumber", [l.blockNumber, false]);
+      cache.rings.push({ n, ringer: "0x" + l.topics[1].slice(26).toLowerCase(), block: parseInt(l.blockNumber, 16), tx: l.transactionHash, ts: parseInt(blk.timestamp, 16) });
+    }
+    cache.scannedTo = to; save(); from = to + 1;
+  }
+  cache.rings.sort((a, b) => a.n - b.n);
+}
+async function loadEns(addrs) {
+  const now = Date.now(), need = addrs.filter(a => !cache.ens[a] || now - cache.ens[a].at > 864e5);
+  if (!need.length) return;
+  const calls = need.map(a => ({ to: UR, data: "0x5d78a217" + u256(64) + u256(60) + u256(20) + a.slice(2).toLowerCase().padEnd(64, "0") }));
+  try {
+    const r = await multicall(ETH_RPCS, calls, 50);
+    need.forEach((a, i) => { cache.ens[a] = { name: r[i].ok ? decString(r[i].data) : "", at: now }; });
+    save();
+  } catch (e) { /* ens is a nice-to-have */ }
+}
+const ensOf = a => (cache.ens[a] && cache.ens[a].name) || "";
+
+/* ---------- derived ---------- */
+function shinyPasses() {
+  const list = [];
+  for (let id = 1; id <= S.minted; id++) { const o = S.owners[id]; if (o && S.rung[o]) list.push(id); }
+  const ringOf = {}; cache.rings.forEach(r => { if (!ringOf[r.ringer]) ringOf[r.ringer] = r; });
+  return list.map(id => ({ id, owner: S.owners[id], ring: ringOf[S.owners[id]] || null }))
+    .sort((a, b) => (a.ring ? a.ring.n : 1e9) - (b.ring ? b.ring.n : 1e9) || a.id - b.id);
+}
+
+/* ---------- render ---------- */
+function renderCounter(sh) {
+  const live = S.minted - S.burned;
+  $("bigCount").innerHTML = ""; $("bigCount").append(String(sh.length), el("small", null, " / " + fmtInt(live)));
+  $("countLine").textContent = `${sh.length} of ${fmtInt(live)} passes have rung their bell`;
+  const w = S.bells === 1 ? "1 wallet has" : `${fmtInt(S.bells)} wallets have`;
+  $("countSub").textContent = `${w} rung so far. one ring shines every pass in that wallet. ${fmtInt(S.minted)} of ${fmtInt(MAX_SUPPLY)} passes issued.`;
+  $("barFill").style.width = (live ? Math.max(1.5, sh.length / live * 100) : 0) + "%";
+  $("blockText").textContent = "block " + fmtInt(S.block);
+}
+function renderBoard(shinySet) {
+  const b = $("board");
+  if (b.children.length !== MAX_SUPPLY) { b.innerHTML = ""; for (let i = 1; i <= MAX_SUPPLY; i++) { const d = el("b"); d.dataset.id = i; b.appendChild(d); } }
+  for (let i = 1; i <= MAX_SUPPLY; i++) {
+    const d = b.children[i - 1];
+    const cls = i > S.minted ? "u" : (!S.owners[i] ? "x" : (shinySet.has(i) ? "s" : ""));
+    if (d.className !== cls) d.className = cls;
+    d.title = i > S.minted ? `#${four(i)} not issued` : `#${four(i)} ${shinySet.has(i) ? "shiny" : (S.owners[i] ? "dusty" : "burned")}`;
+  }
+}
+function passCard(p, idx, isNew) {
+  const info = S.info[p.id] || {}, meta = cache.meta[p.id];
+  const c = el("article", "card pass" + (isNew ? " fresh" : ""));
+  const art = el("div", "art");
+  if (meta && meta.image) { const img = el("img"); img.loading = "lazy"; img.decoding = "async"; img.alt = `TMF Pass #${four(p.id)} art`; img.src = meta.image; art.appendChild(img); }
+  else { const ph = el("div", "ph"); ph.appendChild(bellSvg(true, 54)); art.appendChild(ph); }
+  c.appendChild(art);
+  const body = el("div");
+  const h = el("p", "no"); h.append(el("span", "n", "#" + four(p.id)));
+  if (p.ring && p.ring.n === 1) h.append(el("span", "badge first", "first ringer"));
+  if (isNew) h.append(el("span", "badge new", "new"));
+  body.appendChild(h);
+  const hold = el("div", "holder"); const ens = ensOf(p.owner);
+  if (ens) { hold.append(el("span", "ens", ens), " · "); }
+  hold.append(el("span", "nw", short(p.owner))); body.appendChild(hold);
+  body.appendChild(info.note ? el("p", "note", "“" + info.note + "”") : el("p", "note none", info.src ? `${DOORS[info.src] || ""}, no note on chain` : ""));
+  const when = el("div", "when");
+  if (p.ring) { when.append(el("b", null, utc(p.ring.ts)), el("br"), ago(p.ring.ts) + " · " + (DOORS[info.src] || "")); }
+  else when.append("ring time still loading");
+  body.appendChild(when);
+  const ls = el("div", "links");
+  if (p.ring) ls.appendChild(link(`${EXP}/tx/${p.ring.tx}`, "ring tx ↗"));
+  ls.appendChild(link(`https://opensea.io/item/robinhood/${PASS}/${p.id}`, "opensea ↗"));
+  if (meta && meta.anim) ls.appendChild(link(meta.anim, "live pass ↗"));
+  ls.appendChild(link(`${EXP}/address/${p.owner}`, "holder ↗"));
+  body.appendChild(ls);
+  c.appendChild(body);
+  if (p.ring) c.appendChild(el("span", "ringno", "ring " + p.ring.n));
+  return c;
+}
+function renderGrid(sh) {
+  const g = $("shinyGrid"); g.innerHTML = "";
+  if (!sh.length) { g.appendChild(el("div", "card empty", "no shiny bells yet. the desk is quiet.")); return; }
+  const first = cache.seen === null; const seen = new Set(cache.seen || []);
+  sh.forEach((p, i) => g.appendChild(passCard(p, i, !first && !seen.has(p.id))));
+  cache.seen = [...new Set([...(cache.seen || []), ...sh.map(p => p.id)])]; save();
+}
+
+/* ---------- lookup ---------- */
+async function lookup(raw) {
+  const out = $("result"); out.innerHTML = ""; const q = raw.trim().replace(/^#/, "");
+  if (!q) return;
+  if (!S.ok) { out.appendChild(el("p", "err", "still loading the chain, try again in a moment.")); return; }
+  try {
+    if (/^\d{1,4}$/.test(q)) {
+      const id = Number(q);
+      if (id < 1 || id > MAX_SUPPLY) { out.appendChild(el("p", "err", "passes go from #1 to #1500.")); return; }
+      if (id > S.minted) { out.appendChild(el("p", "err", `#${four(id)} has not been issued yet. ${fmtInt(S.minted)} passes so far.`)); return; }
+      if (!S.owners[id]) { out.appendChild(el("p", "err", `#${four(id)} has been burned.`)); return; }
+      await loadInfo([id]); await Promise.all([loadEns([S.owners[id]]), loadMeta(id)]);
+      out.appendChild(resultCard(id));
+      history.replaceState(null, "", "#" + id);
+    } else if (/^0x[0-9a-fA-F]{40}$/.test(q)) {
+      const a = q.toLowerCase();
+      const ids = []; for (let i = 1; i <= S.minted; i++) if (S.owners[i] === a) ids.push(i);
+      const rung = decUint(await ethCall(RH_RPCS, PASS, "0x" + SEL.hasRung + addrWord(a))) === 1;
+      await loadEns([a]);
+      const head = el("p", null); const ens = ensOf(a);
+      head.append(el("span", "mono", (ens ? ens + " · " : "") + short(a)), " ", rung ? "has rung the bell." : "has not rung the bell yet.");
+      out.appendChild(head);
+      if (!ids.length) { out.appendChild(el("p", "err", rung ? "this wallet rang but holds no pass right now." : "this wallet holds no TMF Pass.")); return; }
+      await loadInfo(ids); await Promise.all(ids.map(loadMeta));
+      ids.forEach(id => out.appendChild(resultCard(id)));
+      history.replaceState(null, "", "#" + a);
+    } else {
+      out.appendChild(el("p", "err", "enter a pass number like 81, or a full 0x wallet address."));
+    }
+  } catch (e) { out.appendChild(el("p", "err", "the chain did not answer. try again in a moment.")); }
+}
+function resultCard(id) {
+  const o = S.owners[id], shiny = !!S.rung[o], info = S.info[id] || {}, meta = cache.meta[id];
+  const ring = cache.rings.find(r => r.ringer === o);
+  const r = el("div", "res"); r.appendChild(bellSvg(shiny, 72));
+  const b = el("div");
+  b.append(el("div", "state " + (shiny ? "s" : "d"), shiny ? "shiny bell" : "dusty bell"));
+  b.append(el("h3", null, "TMF Pass #" + four(id)));
+  const ens = ensOf(o); b.append(el("p", "holder mono", "holder " + (ens ? ens + " · " : "") + short(o)));
+  b.append(el("p", null, DOORS[info.src] ? "door: " + DOORS[info.src] : ""));
+  b.append(info.note ? el("p", "note", "on-chain note: “" + info.note + "”") : el("p", "note none", "on-chain note: none. this door does not carry one."));
+  if (shiny && ring) b.append(el("p", "mono", `rang ${utc(ring.ts)} · ${ago(ring.ts)}` + (ring.n === 1 ? " · first ringer" : "")));
+  if (!shiny) b.append(el("p", null, "this bell is still dusty. the holder has not rung it yet."));
+  const ls = el("div", "links");
+  if (shiny && ring) ls.appendChild(link(`${EXP}/tx/${ring.tx}`, "ring tx ↗"));
+  ls.appendChild(link(`https://opensea.io/item/robinhood/${PASS}/${id}`, "opensea ↗"));
+  if (meta && meta.anim) ls.appendChild(link(meta.anim, "live pass ↗"));
+  b.append(ls); r.appendChild(b); return r;
+}
+$("topBell").appendChild(bellSvg(true, 62));
+$("lookupForm").addEventListener("submit", e => { e.preventDefault(); lookup($("q").value); });
+$("board").addEventListener("click", e => { const id = e.target.dataset && e.target.dataset.id; if (!id || Number(id) > S.minted) return;
+  $("q").value = id; lookup(id); $("lookup").scrollIntoView({ behavior: "smooth", block: "start" }); });
+
+/* ---------- loop ---------- */
+let busy = false, nextAt = 0, retrySoon = false;
+async function refresh() {
+  if (busy) return; busy = true; setStatus("checking", "");
+  try {
+    await loadCore();
+    S.ok = true; S.lastOk = Date.now();
+    renderCounter(shinyPasses()); renderBoard(new Set(shinyPasses().map(p => p.id)));
+    await scanLogs();
+    const sh = shinyPasses();
+    await loadInfo(sh.map(p => p.id));
+    await Promise.all([loadEns([...new Set(sh.map(p => p.owner))]), ...sh.map(p => loadMeta(p.id))]);
+    renderCounter(sh); renderBoard(new Set(sh.map(p => p.id))); renderGrid(sh);
+    window.__bell = { minted: S.minted, burned: S.burned, bells: S.bells, block: S.block, shiny: sh.map(p => ({ id: p.id, owner: p.owner, ring: p.ring && p.ring.n, ts: p.ring && p.ring.ts, tx: p.ring && p.ring.tx, ens: ensOf(p.owner), note: (S.info[p.id] || {}).note })) };
+    setStatus(S.logsPartial ? "live, ring times partly loaded" : "live", S.logsPartial ? "amber" : "live");
+  } catch (e) {
+    setStatus(S.ok ? "chain busy, showing last read" : "chain busy, retrying", "amber"); retrySoon = true;
+  } finally { busy = false; nextAt = Date.now() + (retrySoon || S.logsPartial ? 12000 : REFRESH_MS); retrySoon = false; }
+}
+function setStatus(t, cls) { $("statusText").textContent = t; $("liveDot").className = "dot " + (cls || ""); }
+setInterval(() => {
+  if (!nextAt) return;
+  const s = Math.max(0, Math.ceil((nextAt - Date.now()) / 1000));
+  $("nextText").textContent = busy ? "" : `next check in ${s}s`;
+  if (s === 0 && !busy && !document.hidden) refresh();
+}, 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - S.lastOk > REFRESH_MS) refresh(); });
+$("refreshBtn").addEventListener("click", () => refresh());
+
+refresh().then(() => { const h = decodeURIComponent(location.hash.slice(1)); if (h) { $("q").value = h; lookup(h); } });
+})();
+</script>
+</body>
+</html>
